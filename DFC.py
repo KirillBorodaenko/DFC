@@ -3,9 +3,11 @@
 # Author: Kirill Borodaenko
 # Date: 05.21.2019
 
-# import libs
+## import libs
+import time
 import random as rnd
-from math import*
+import matplotlib.pyplot as plt
+import math
 
 ## encoder function
 # param in: text message
@@ -28,9 +30,10 @@ def decode_msg(bits, encoding = 'UTF-8'):
 # param in: full message
 # param out: sliced message
 def slicer(message):
+
     sliced_message = []
     k = 0
-    while (k != len(message) / 128):
+    while (k < len(message) / 128):
         right_part = k * 128
         left_part = (k + 1) * 128
         sliced_message.append(message[right_part:left_part])
@@ -58,6 +61,7 @@ const_2_64_int = int(const_2_64_str, 2)
 # params in: round key, 64-bit source subblock
 # param out: 64-bit ciphered subblock
 def dfc_round_func(round_key, source_subblock):
+
     # key slicing
     round_key_str = bin(round_key)[2:].zfill(128)
     a_str = round_key_str[0:64]
@@ -150,3 +154,46 @@ print("Size:", len(source_message), '\n')
 
 print("Decoded message:", decode_msg(deciphered_message))
 
+## build time graphic 
+# param in: none
+# param out: graphic with cipher-execution times
+def build_time_graphic():
+    istream = open('time.txt', 'r')
+    bits = []
+    time = []
+    line = "non-zero"
+    i = 1
+    while line:
+        bits.append(i)
+        line = istream.readline()[:10]
+        try:
+            line = float(line)
+        except:
+            line = 0
+        time.append(line)
+        i += 1
+    plt.figure(num = None, figsize = (14, 9), dpi = 200, facecolor = 'w', edgecolor = 'k')
+    plt.plot(bits, time, lw = 2, color = '#006400', alpha = 1)
+    plt.xlabel("Bits * 128")
+    plt.ylabel("Execution time, sec")
+    plt.grid()
+    plt.show()
+
+## time test
+# param in: none
+# param out: file with cipher-execution times
+x = 128
+ostream = open('time.txt', 'a')
+cipher_key = rnd.getrandbits(128)
+
+while (x < 70000):
+    message = bin(rnd.getrandbits(x))[2:].zfill(x)
+    sliced_message = slicer(message)
+    start_time = time.time()
+    ciphered_message = cipherer(sliced_message)
+    ostream.write(str(time.time() - start_time) + '\n')
+    x += 128
+
+ostream.close()
+build_time_graphic()
+open('time.txt', 'w').close()
