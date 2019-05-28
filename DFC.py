@@ -1,13 +1,27 @@
+#!/usr/bin/env python
+# coding: utf-8
+
+# In[1]:
+
+
 ## Disclaimer
 # The realization of decorrelated fast cipher (DFC) is reserved.
 # Author: Kirill Borodaenko
 # Date: 05.21.2019
+
+
+# In[2]:
+
 
 ## import libs
 import time
 import random as rnd
 import matplotlib.pyplot as plt
 import math
+
+
+# In[3]:
+
 
 ## encoder function
 # param in: text message
@@ -40,6 +54,10 @@ def slicer(message):
         k += 1
     return sliced_message
 
+
+# In[4]:
+
+
 # hex constants
 KC = 0xeb64749a
 KD = 0x86d1bf275b9b241d
@@ -56,6 +74,10 @@ RT = [0xb7e15162, 0x8aed2a6a, 0xbf715880, 0x9cf4f3c7, 0x62e7160f, 0x38b4da56, 0x
 # constant 2^64
 const_2_64_str = str(10000000000000000000000000000000000000000000000000000000000000000)
 const_2_64_int = int(const_2_64_str, 2)
+
+
+# In[5]:
+
 
 ## round function DFC
 # params in: round key, 64-bit source subblock
@@ -132,27 +154,36 @@ def cipherer(sliced_message):
         
     return ciphered_message
 
+
+# In[6]:
+
+
 ## main demo
-# param in: none
-# param out: none
-istream = open('source_message.txt')
-source_message = encode_msg(istream.read())
-print("Source message:", decode_msg(source_message), '\n')
-print("Encoded message:", source_message)
-print("Size:", len(source_message), '\n')
-cipher_key = rnd.getrandbits(128)
+# param in: 128-bit cipher key
+# param out: print demo results
+def main_demo(cipher_key):
 
-sliced_message = slicer(source_message)
-ciphered_message = cipherer(sliced_message)
-print("Ciphered message:", ciphered_message)
-print("Size:", len(source_message), '\n')
+    istream = open('source_message.txt')
+    source_message = encode_msg(istream.read())
+    print("Source message:", decode_msg(source_message), '\n')
+    print("Encoded message:", source_message)
+    print("Size:", len(source_message), '\n')
 
-sliced_message = slicer(ciphered_message)
-deciphered_message = cipherer(sliced_message)
-print("Deciphered message:", deciphered_message)
-print("Size:", len(source_message), '\n')
+    sliced_message = slicer(source_message)
+    ciphered_message = cipherer(sliced_message)
+    print("Ciphered message:", ciphered_message)
+    print("Size:", len(source_message), '\n')
 
-print("Decoded message:", decode_msg(deciphered_message))
+    sliced_message = slicer(ciphered_message)
+    deciphered_message = cipherer(sliced_message)
+    print("Deciphered message:", deciphered_message)
+    print("Size:", len(source_message), '\n')
+
+    print("Decoded message:", decode_msg(deciphered_message))
+
+
+# In[7]:
+
 
 ## build time graphic 
 # param in: none
@@ -180,20 +211,129 @@ def build_time_graphic():
     plt.show()
 
 ## time test
+# param in: max bit quantity
+# param out: time test results
+def time_test(max_bits):
+    x = 128
+    ostream = open('time.txt', 'a')
+    cipher_key = rnd.getrandbits(128)
+
+    while (x < max_bits):
+        message = bin(rnd.getrandbits(x))[2:].zfill(x)
+        sliced_message = slicer(message)
+        start_time = time.time()
+        ciphered_message = cipherer(sliced_message)
+        ostream.write(str(time.time() - start_time) + '\n')
+        x += 128
+
+    ostream.close()
+    build_time_graphic()
+    open('time.txt', 'w').close()
+
+
+# In[8]:
+
+
+## basic parameter helper
+# param in: array & current BP
+# param out: new array
+def basic_parameter_helper(array_one, N):
+    array = []
+    l = 0
+    for i in range(0, len(array_one) - N + 1):
+        a = ''
+        for k in range(0, N):
+            a += str(array_one[i + k])
+        array.insert(l, a)
+        l += 1
+    return array
+
+## basic parameter calculating
+# param in: ciphered bit sequence
+# param out: basic parameter for this sequence
+def basic_parameter_calculating(ciphered_message):
+    N = 1
+    array_one = []
+    array_two = []
+    cipher_mess = list(ciphered_message)
+    for i in range(1, len(ciphered_message)):
+        array_one.append(int(cipher_mess[i]))
+        array_two.append(int(cipher_mess[i]))
+        i += 1
+    j = 0
+    while (j != len(array_two)):
+        for i in range(j + 1, len(array_two)):
+            if (array_two[j] == array_two[i]):
+                N += 1
+                array_two = basic_parameter_helper(array_one, N)
+                j = 0
+                break
+        j += 1
+    return N
+
+## build_basic_parameter_graphic
 # param in: none
-# param out: file with cipher-execution times
-x = 128
-ostream = open('time.txt', 'a')
+# param out: graphic for basic parameter experiment 
+def build_basic_parameter_graphic():
+    istream = open('basic_parameter.txt', 'r')
+    bp = []
+    bits = []
+    line = "non-zero"
+    i = 1
+    while line:
+        bits.append(i)
+        line = istream.readline()
+        try:
+            line = int(line)
+        except:
+            line = 0
+        bp.append(line)
+        i += 1
+    plt.figure(num = None, figsize = (14, 9), dpi = 200, facecolor = 'w', edgecolor = 'k')
+    plt.plot(bits, bp, lw = 2, color = '#C71585', alpha = 1)
+    plt.xlabel("Bits * 128")
+    plt.ylabel("Basic parameter")
+    plt.grid()
+    plt.show()
+    
+## basic_parameter_test
+# param in: none
+# param out: basic parameter test results
+def basic_parameter_test(max_bits):
+    x = 128
+    ostream = open('basic_parameter.txt', 'a')
+    cipher_key = rnd.getrandbits(128)
+
+    while (x < max_bits):
+        message = bin(rnd.getrandbits(x))[2:].zfill(x)
+        sliced_message = slicer(message)
+        ciphered_message = cipherer(sliced_message)
+        basic_parameter = basic_parameter_calculating(ciphered_message)
+        ostream.write(str(basic_parameter) + '\n')
+        x += 128
+
+    ostream.close()
+    build_basic_parameter_graphic()
+    open('basic_parameter.txt', 'w').close()  
+
+
+# In[9]:
+
+
+## main demo call
 cipher_key = rnd.getrandbits(128)
+main_demo(cipher_key)
 
-while (x < 70000):
-    message = bin(rnd.getrandbits(x))[2:].zfill(x)
-    sliced_message = slicer(message)
-    start_time = time.time()
-    ciphered_message = cipherer(sliced_message)
-    ostream.write(str(time.time() - start_time) + '\n')
-    x += 128
 
-ostream.close()
-build_time_graphic()
-open('time.txt', 'w').close()
+# In[21]:
+
+
+## time test call
+time_test(120000)
+
+
+# In[25]:
+
+
+basic_parameter_test(6000)
+
